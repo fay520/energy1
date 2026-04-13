@@ -4,19 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>宇宙能量扫描站</title>
-    <!-- 加载核心库 -->
+    <!-- 优化后的 CDN 镜像（国内访问更友好） -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.zhimg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.zhimg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.zhimg.com/@babel/standalone/babel.min.js"></script>
+    <!-- 二维码生成库 -->
+    <script src="https://lib.baomitu.com/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         @keyframes pulse-glow { 0%, 100% { opacity: 0.3; transform: scale(1); } 50% { opacity: 0.6; transform: scale(1.1); } }
         @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
         .animate-pulse-glow { animation: pulse-glow 4s ease-in-out infinite; }
         .animate-float { animation: float 6s ease-in-out infinite; }
         ::-webkit-scrollbar { width: 0px; }
-        body { background-color: #010103; color: #cbd5e1; margin: 0; font-family: system-ui, -apple-system, sans-serif; overflow-x: hidden; }
+        body { background-color: #010103; color: #cbd5e1; margin: 0; font-family: system-ui, -apple-system, sans-serif; overflow-x: hidden; -webkit-tap-highlight-color: transparent; }
         .line-clamp-custom { display: -webkit-box; -webkit-line-clamp: 10; -webkit-box-orient: vertical; overflow: hidden; }
+        /* 确保模态框在最上层且可滚动 */
+        .modal-scroll { max-height: 85vh; overflow-y: auto; scrollbar-width: none; }
     </style>
 </head>
 <body>
@@ -25,8 +29,7 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef } = React;
 
-        // --- 1. 基础视觉组件 (最先定义，防止 ReferenceError) ---
-        
+        // --- 图标组件 ---
         const Icon = ({ name, className = "w-6 h-6" }) => {
             const paths = {
                 Sparkles: <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />,
@@ -39,14 +42,32 @@
                 Share: <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13"/>,
                 Download: <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>,
                 X: <path d="M18 6 6 18M6 6l12 12"/>,
-                Check: <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10zM9 12l2 2 4-4"/>,
-                Qr: <g><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3z"/><path d="M14 14h3v3h-3zM18 18h3v3h-3z"/></g>
+                Check: <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10zM9 12l2 2 4-4"/>
             };
             return (
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
                     {paths[name] || null}
                 </svg>
             );
+        };
+
+        // --- 二维码生成子组件 ---
+        const QRCodeGenerator = () => {
+            const qrRef = useRef(null);
+            useEffect(() => {
+                if (qrRef.current) {
+                    qrRef.current.innerHTML = "";
+                    new QRCode(qrRef.current, {
+                        text: window.location.href,
+                        width: 80,
+                        height: 80,
+                        colorDark: "#A855F7",
+                        colorLight: "rgba(255,255,255,0.1)",
+                        correctLevel: QRCode.CorrectLevel.H
+                    });
+                }
+            }, []);
+            return <div ref={qrRef} className="p-1 bg-white/10 rounded-lg shadow-lg"></div>;
         };
 
         const SacredLotusPoint = ({ color, cx, cy, name }) => (
@@ -80,144 +101,52 @@
             </svg>
         );
 
-        // --- 2. 配置常量 ---
+        // --- 数据池与演化逻辑 ---
         const CHAKRA_COLORS = ["#EF4444", "#F97316", "#FACC15", "#22C55E", "#3B82F6", "#6366F1", "#A855F7"];
-        const CHAKRA_NAMES = ["海底轮", "生殖轮", "太阳神经丛", "心轮", "喉轮", "眉心轮", "顶轮"];
         const TAG_POOL = ["寻找灵魂使命", "释放职场焦虑", "吸引金钱丰盛", "深度情感疗愈", "渴望内在宁静", "找回行动意志", "链接高维直觉", "突破创作瓶颈", "开启显化丰盛", "净化磁场负担", "增强自信能量", "提升生命频率", "平衡身心节奏", "寻找生命真意", "重塑自我价值"];
         const ORACLES = ["我选择放下不再服务于我的旧能量，迎接全新的自我。", "我正处于蜕变的边缘，宇宙之光正在指引我的每一步。", "宇宙的丰盛正在精准流向我，我完全敞开以接收。", "我的每一次呼吸都在与万物共振，我即是光。", "我的直觉是神圣的罗盘，指引我走向真实的方向。"];
 
-        // --- 3. 脉轮逻辑 ---
-        const getChakraInsight = (name, value) => {
-            const insights = {
-                "海底轮": {
-                    high: "判定：生命根基极其稳固。建议：保持安全感，将能量向上导引至创造。 ",
-                    mid: "判定：生存能量流转正常。建议：多亲近大自然，加固与大地的链接。 ",
-                    low: "判定：存在生存焦虑。建议：练习赤脚接触土地，清理对匮乏的恐惧。 "
-                },
-                "生殖轮": {
-                    high: "判定：创造力与情感处于巅峰。建议：享受生命喜悦，进行艺术创作。 ",
-                    mid: "判定：情感流动平衡。建议：允许情绪自然流动，接纳内在的阴阳平衡。 ",
-                    low: "判定：生命力稍显凝滞。建议：随心舞动，激活沉睡的情感源泉。 "
-                },
-                "太阳神经丛": {
-                    high: "判定：意志力极其强大。建议：平衡掌控欲与神性节奏，防止过度用力。 ",
-                    mid: "判定：自我肯定感良好。建议：信任内在直觉，在行动中稳固边界。 ",
-                    low: "判定：意志力正处于重塑期。建议：练习肯定句，拿回人生主导权。 "
-                },
-                "心轮": {
-                    high: "判定：慈悲与接纳频率极高。建议：建立光之边界，防止过度吸收他人情绪。 ",
-                    mid: "判定：自爱与他爱平衡。建议：深化慈悲观，让爱成为自然溢出的芬芳。 ",
-                    low: "判定：心之门户存在防御。建议：尝试‘心之呼吸’，允许爱重新进入伤口。 "
-                },
-                "喉轮": {
-                    high: "判定：表达力精准且具号召力。建议：审慎使用言语，只说真理的话。 ",
-                    mid: "判定：沟通顺畅。建议：练习深度倾听，让言语携带来自灵魂的真实。 ",
-                    low: "判定：真实表达受阻。建议：尝试自由书写，将压抑的声音流淌出来。 "
-                },
-                "眉心轮": {
-                    high: "判定：直觉力与透视力极强。建议：信任第一灵感，那是高我在对话。 ",
-                    mid: "判定：洞察力稳步提升。建议：减少电子产品使用，给松果体留出静默。 ",
-                    low: "判定：感知力处于迷雾期。建议：多看远山，协助视觉意识进行校准。 "
-                },
-                "顶轮": {
-                    high: "判定：神圣连接完全敞开。建议：保持谦卑，你是源头智慧的翻译器。 ",
-                    mid: "判定：灵性意识觉醒。建议：坚持冥想，加固通向高维的金色信道。 ",
-                    low: "判定：意识仍被逻辑局限。建议：多接触高频书籍，打破认知天花板。 "
-                }
-            };
-            const level = value > 85 ? 'high' : (value > 65 ? 'mid' : 'low');
-            return insights[name][level];
-        };
-
-        // --- 4. 深度档案库生成 ---
         const ENERGY_LIBRARY = [];
+        const auraNames = ["涅槃紫金光", "极光翡翠绿", "深海蔚蓝光", "日冕纯金色", "神圣玫瑰粉", "晶钻透明光", "流金琥珀橙", "碧玺孔雀绿", "熔岩赤色火", "靛蓝星空光", "天琴座白光", "大地母亲褐", "银河核心银", "雷姆利亚青", "恒星辉光白", "亚特兰蒂斯靛", "基督意识红", "佛陀智慧黄", "宇宙虚空黑", "生命之花金", "如来琉璃青"];
+        const colors = ["#A855F7", "#22C55E", "#3B82F6", "#FACC15", "#EC4899", "#FFFFFF", "#F97316", "#14B8A6", "#EF4444", "#6366F1", "#94a3b8", "#78350f", "#e2e8f0", "#5eead4", "#fafaf9", "#312e81", "#dc2626", "#eab308", "#09090b", "#fbbf24", "#06b6d4"];
+
         const familyTemplates = [
             { 
                 title: "觉醒者", focus: [6, 5], 
-                mission: "你这一生的核心代码是‘新意识的频率引路人’。你的天赋使命是作为一个多维翻译器，将原本难以感知的宇宙灵感，通过你独特的艺术形式或简单平凡的生活示范，翻译并具象化为切实帮助他人觉醒的实相。你不需要刻意去教导，你只需活出真实。这种真实产生的震荡波，自会穿透周围沉睡灵魂的帷幕。你正在学习如何平衡神圣直觉与理性执行，在红尘中炼心。",
-                advice: "源头给你的指引是：‘减少用力，回归中心的极致寂静’。目前的你太容易被外界信息干扰，试图分析解决所有难题。但现在的重点是‘静默’。当你不再焦虑于未来，也不再纠结于过去时，你当下的频率就是全宇宙最强的。建议近期进行彻底的‘数字斋戒’，将注意力放回呼吸。你会发现，当你不再‘追逐’显化时，资源会成群结队向你飞奔而来。"
+                mission: "你这一生的核心代码是‘新意识的频率引路人’。你的天赋使命是作为一个多维翻译器，将原本难以感知的宇宙灵感，翻译并具象化为切实帮助他人觉醒的实相。你不需要刻意去教导，你只需活出真实。这种真实产生的震荡波，自会穿透周围沉睡灵魂的帷幕。你正在学习如何平衡神圣直觉与理性执行，在红尘中炼心。",
+                advice: "源头给你的指引是：‘减少用力，回归中心的极致寂静’。目前的你太容易被外界信息干扰。当你不再焦虑于未来，也不再纠结于过去时，你当下的频率就是全宇宙最强的。建议近期进行彻底的‘数字斋戒’，将注意力全额放回呼吸。你会发现，当你不再‘追逐’显化时，资源会向你飞奔而来。"
             },
             { 
                 title: "疗愈者", focus: [3, 1], 
-                mission: "你携带了‘灵魂生态园丁’的契约代码。你的天赋在于通过非语言的场域共振，去修复他人情感网络中的断层。你的存在本身就是一种柔和的麻醉剂，能够让剧痛的伤口在爱中开始愈合。你的人生使命是示范一种‘阴性的力量’——通过全然的接纳和慈悲，去转化那些被硬化的痛苦。你被委派去守护脆弱的美丽，教导人们如何以‘心’而非以‘脑’去交流。",
-                advice: "园丁也需要自己的秘密花园。源头提醒你：‘先爱自己，慈悲才会真正溢出’。你总是太容易被他人的情绪牵引，甚至在不经意间吸附了能量灰尘。目前的建议是学会建立‘光的保护盾’。在疗愈他人之前，确保你的根部是深埋在自爱的沃土中的。请多去大自然中‘充电’，赤脚接触土地。不要抗拒你的敏感，它是你最珍贵的礼物。"
+                mission: "你携带了‘灵魂生态园丁’的契约代码。你的天赋在于通过非语言的场域共振，去修复他人情感网络中的断层。你的存在本身就是一种柔和的麻醉剂，能够让剧痛的伤口在爱中开始愈合。你的人生使命是示范一种‘阴性的力量’——通过全然的接纳和慈悲，去转化那些被硬化的痛苦。你被委派去守护脆弱的美丽。",
+                advice: "园丁也需要自己的秘密花园。源头提醒你：‘先爱自己，慈悲才会真正溢出’。你总是太容易被他人的情绪牵引。目前的建议是学会建立‘光的保护盾’。在疗愈他人之前，确保你的根部是深埋在自爱的沃土中的。多去大自然中‘充电’。不要抗拒你的敏感，它是你最珍贵的礼物。"
             },
             { 
                 title: "显化者", focus: [2, 0], 
-                mission: "你的灵魂代码标记为‘神圣实相的建筑师’。你的天赋是将那缥缈的灵光精准地锚定在物质界，转化为可见、可运营的实体结构——无论是企业、作品还是全新的生活范式。你拥有一种化腐朽为神奇的魔力。你正在学习如何运用‘非执着的力量’去成就伟大的事业。你不只是在追求个人成功，你是在向世人示范：当一个人对齐源头意志时，物质世界的繁荣只是自然而然的副产品。",
-                advice: "源头提醒你：‘越是明亮的太阳，阴影也越深’。在极速扩张中，务必保持极致的觉察。你的意志力目前非常强大，但这并不意味着你应该去控制每一个变量。请练习‘无为而治’的艺术，在行动时像猎豹一样迅捷，在静止时像山岳一样沉稳。建议近期多进行能量上的‘慷慨练习’。当你成为一个纯粹的流转通道时，宇宙的丰盛将会翻倍回馈于你。"
-            },
-            { 
-                title: "表达者", focus: [4, 6], 
-                mission: "你是被拣选的‘真理传声筒’。你的灵魂被赋予了精准描述不可言说之物的职责。你的天赋使命是通过文字、声音或某种艺术形式，去戳破大众意识中虚伪的泡沫。你的人生轨迹是关于‘重申真实’。当你拒绝妥协于平庸的谎言时，你的能量场就会变得像蓝宝石一样剔透。你被期待去建立一种基于诚信和透明度的沟通范式，引导他人找到属于自己的灵魂北极星。",
-                advice: "目前的指引是关于‘言语的提纯’。源头建议你观察每一个念头的生起，评估它是否真的需要转化为言语。当你说得越少，你的每一句话就越重。请练习‘深度倾听’——不仅仅是听别人的声音，更是听取风的声音。在接下来的周期里，不要急于发表或自证，先让智慧在内心沉淀。当你的内在完全澄清时，你的声音将拥有穿透时空、引发剧烈觉醒的力量。"
-            },
-            { 
-                title: "守护者", focus: [3, 0], 
-                mission: "你承担着‘地球古老频率守护者’的契约。你的天赋在于一种跨越时空的稳定感。在这个狂躁动荡的时代，你就是那座不动的、能给人安全感的山。你的使命是记录并持守那些被人类遗忘的自然法则。你拥有一种与土地、矿物和动植物深度对话的直觉力。你被委派去清理地球被污染的情感记忆，通过你的仪式感和静默，为社区锚定一个安全的生存场。",
-                advice: "去寻找你的‘灵魂部落’。你可能在人群中常感到莫名的孤独，那是因为你的频率在寻找同样守护大地的同类。目前建议多接触大自然的土元素，减少在数字化环境中停留的时间。每天至少花半小时光脚站在泥土地上，让大地带走你的疲惫。不要因为世界的混乱而感到绝望，你只需守住你那一小块‘神圣空间’。当你自己平衡了，磁场就会自动恢复秩序。"
-            },
-            { 
-                title: "创造者", focus: [5, 1], 
-                mission: "你的核心逻辑是‘神圣生命火种的点燃者’。你的天赋在于无中生有的创造激情，你能感知到那些尚未诞生的美的形状。你的使命是打破陈旧、死气沉沉的教条。你正在学习如何将原始的、甚至是野性的生命力，精炼为能点燃他人热情的圣火。通过你的喜悦，你正在教导人们：灵性也可以是热气腾腾的创造和淋漓尽致的表达。你将建立一种鼓励自由与活力的文化。",
-                advice: "学会引导你那奔腾的热情。你现在的能量非常旺盛，但若不加引导，可能会演变为焦躁。请练习‘神圣的节奏感’——在创作时全力以赴，在休息时彻底空掉。建议你近期尝试一些关于‘身体感官’的深度体验，如手工捏陶或自由起舞。同时，要注意保护你的生殖能量，不要在低频的拉扯中损耗它。保持谦卑，当你学会在热情中保持觉知，你将成为一个不可阻挡的源泉。"
-            },
-            { 
-                title: "开拓者", focus: [2, 0], 
-                mission: "你是‘新世界实相的拓荒人’。你的天赋在于无与伦比的‘抓地力’和‘生存抗压能力’。在别人由于恐惧而退缩的地方，你会用你的赤色火焰开辟出路径。你被委派去重塑那些低效、腐朽的社会结构，通过你的执行力去显化真正的物理繁荣。你正在学习如何将原始的生命冲动精炼为守护文明的力量。通过你的努力，你正在向世界证明：精神力量可以通过不懈的物理努力，在荒凉的土地上建立起真正的天堂。",
-                advice: "源头提醒你：‘火若不加控制，亦会自焚’。你目前的能量非常炽热，这让你势如破竹，但也可能让你在人际关系中显得过于强硬。建议近期练习‘以水济火’——多接触水源、游泳，或者在月光下散步，这能调和你场域中的燥气。务必关照身体健康，不要过度透支物理载具。学会欣赏‘慢的力量’，当你能让这股火在炉灶中温暖他人时，你就掌握了生命之秘。"
+                mission: "你的灵魂代码标记为‘神圣实相的建筑师’。你的天赋是将灵光精准地锚定在物质界，转化为可见、可运营的实体结构。你拥有一种化腐朽为神奇的魔力。你正在学习如何运用‘非执着的力量’去成就伟大的事业。你不只是在追求个人成功，你是在向世人示范：当一个人对齐源头意志时，物质世界的繁荣只是自然而然的副产品。",
+                advice: "源头提醒你：‘越是明亮的太阳，阴影也越深’。在极速扩张中，务必保持极致的觉察。你的意志力目前非常强大，但这并不意味着你应该去控制每一个变量。练习‘无为而治’的艺术，在静止时像山岳一样沉稳。近期多进行能量上的‘慷慨练习’。当你成为纯粹的流转通道时，宇宙的丰盛会翻倍回馈。"
             }
         ];
 
-        const buildLibrary = () => {
-            const auraNamesArr = ["涅槃紫金光", "极光翡翠绿", "深海蔚蓝光", "日冕纯金色", "神圣玫瑰粉", "晶钻透明光", "流金琥珀橙", "碧玺孔雀绿", "熔岩赤色火", "靛蓝星空光", "天琴座白光", "大地母亲褐", "银河核心银", "雷姆利亚青", "恒星辉光白", "亚特兰蒂斯靛", "基督意识红", "佛陀智慧黄", "宇宙虚空黑", "生命之花金", "如来琉璃青"];
-            const colorsArr = ["#A855F7", "#22C55E", "#3B82F6", "#FACC15", "#EC4899", "#FFFFFF", "#F97316", "#14B8A6", "#EF4444", "#6366F1", "#94a3b8", "#78350f", "#e2e8f0", "#5eead4", "#fafaf9", "#312e81", "#dc2626", "#eab308", "#09090b", "#fbbf24", "#06b6d4"];
+        // 构建21种库
+        for (let i = 0; i < 21; i++) {
+            const template = familyTemplates[i % familyTemplates.length];
+            const rands = Array.from({length: 7}, () => Math.floor(Math.random() * 25) + 45);
+            template.focus.forEach(idx => rands[idx] += 25);
+            
+            ENERGY_LIBRARY.push({
+                aura: { color: colors[i], name: auraNames[i], summary: `灵魂正在经历“${template.title}”阶段的深度整合` },
+                analysis: `扫描显示你目前的能量场呈现出罕见的${auraNames[i]}频率。这标志着你正处于一个多维度的意识跃迁中心。这种变化并非偶然，而是你的精微体正在清除累生累世积累的情绪‘尘埃’。你正在从‘线性时间’的束缚中解脱出来，开始意识到生活中的每一个‘巧合’其实都是背后精密的神圣设计。这种频率正在深度清理你潜意识中积压的匮乏感，将‘我必须努力才能生存’的旧模板彻底粉碎，并替换为‘万物为我所用’的高阶显化指令。你正从一个被动的反应者，转变为一个主动的共创者。\n\n在具体的灵魂演化逻辑中，这道光意味着你与‘宇宙集体意识’的信道已经完全敞开。你开始意识到，所有的匮乏感本质上都是一种幻觉，这种能量正在帮你重新建立与‘丰盛之源’的本质连接。你不再试图通过小我的焦虑去强行控制结果，而是开始享受‘被生命溪流所承载’的臣服感。这种臣服不是软弱，而是极高阶的力量表现，标志着你已经准备好承接更大的神圣使命。接下来的三到六个月，你将进入一个‘加速显化窗口’，每一个清晰且纯净的意图，都会比以往任何时候更快地在物质世界获得反馈。你已经是光，请只是单纯地允许自己绽放。`,
+                chakras: ["海底轮", "生殖轮", "太阳神经丛", "心轮", "喉轮", "眉心轮", "顶轮"].map((name, idx) => ({
+                    name, value: Math.min(rands[idx], 99),
+                    status: `判定：能量流转${rands[idx] > 80 ? '极佳' : (rands[idx] > 60 ? '正常' : '受阻')}。建议：${rands[idx] > 80 ? '保持当下的觉知高度。' : '通过冥想或运动进一步激活该区域。'}`
+                })),
+                mission: template.mission,
+                advice: template.advice
+            });
+        }
 
-            for (let i = 0; i < 21; i++) {
-                const template = familyTemplates[i % familyTemplates.length];
-                const chakras = CHAKRA_NAMES.map((name, idx) => {
-                    let val = Math.floor(Math.random() * 25) + 45;
-                    if (template.focus.includes(idx)) val += 30; // 强化核心脉轮
-                    const finalVal = Math.min(val, 99);
-                    return {
-                        name,
-                        value: finalVal,
-                        status: getChakraInsight(name, finalVal)
-                    };
-                });
-
-                ENERGY_LIBRARY.push({
-                    aura: { color: colorsArr[i], name: auraNamesArr[i], summary: `灵魂正在经历“${template.title}”阶段的深度整合` },
-                    analysis: `扫描结果显示你正被极其宏大的${auraNamesArr[i]}所环绕。这标志着你正处于一个灵魂重组的关键节点。在心理层面，你近期的感知深度已经突破了三维逻辑。你开始敏锐地捕捉到社交环境中微小的能量撕裂感，这并非敏感，而是你的意识频率正在自动‘拒收’那些陈旧、低效、带有牺牲色彩的生存契约。这种能量正在帮你深度清理潜意识中积压的匮乏感，将‘我必须努力才能生存’的旧模板彻底粉碎，并替换为‘万物为我所用’的高阶指令。你正从一个被动的生命反应者，转变为一个主动的意识共创者。\n\n在具体的灵魂演变逻辑中，这道光意味着你与‘宇宙集体意识’的信道已经完全敞开。你开始意识到生活中的每一个‘巧合’其实都是背后精密的神圣设计。这种频率正在深度清理你潜意识中残存的被遗弃感和不配得感，将其转化为对生命无限可能性的终极信任。你不再试图通过小我的焦虑去强行控制结果，而是开始享受‘被生命溪流所承载’的臣服感。接下来的三到六个月，你将进入一个‘加速显化窗口’，每一个清晰的意图都会比以往更快地在物质世界获得反馈。请保持念头的纯净，因为你已经是自己实相的绝对创造者。\n\n此外，这种频率还预示着你与源头意识的某种特殊‘契约’已被激活。这不是偶然，而是你的高我在为你指路，帮助你找回失落已久的灵魂碎片。你正在经历一场关于‘时间感知’的深刻变革，你会发现过去的很多遗憾在当下突然得到了神圣的合理解释。请彻底放下那种一定要靠辛苦劳动才能获取丰盛的陈旧执念，尝试在深度的宁静中行动。当你的内在回归零点，整个宇宙的资源都会以你无法想象的方式向你飞奔而来。你已经是光，请只是单纯地允许自己绽放，所有的美好都会因你的绽放而自动显化。`,
-                    chakras: chakras,
-                    mission: template.mission,
-                    advice: template.advice
-                });
-            }
-        };
-        buildLibrary();
-
-        // --- 5. 背景与主逻辑 ---
-        const StarField = () => {
-            const canvasRef = useRef(null);
-            useEffect(() => {
-                const canvas = canvasRef.current;
-                const ctx = canvas.getContext('2d');
-                let frameId;
-                const resize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
-                const stars = Array.from({ length: 150 }, () => ({ x: Math.random() * window.innerWidth, y: Math.random() * window.innerHeight, size: Math.random() * 1.5, speed: Math.random() * 0.2 + 0.1 }));
-                const draw = () => {
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
-                    stars.forEach(s => { ctx.beginPath(); ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2); ctx.fill(); s.y -= s.speed; if (s.y < 0) s.y = canvas.height; });
-                    frameId = requestAnimationFrame(draw);
-                };
-                window.addEventListener('resize', resize); resize(); draw();
-                return () => { window.removeEventListener('resize', resize); cancelAnimationFrame(frameId); };
-            }, []);
-            return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-0" />;
-        };
-
+        // --- 主程序 ---
         function App() {
             const [input, setInput] = useState('');
             const [isScanning, setIsScanning] = useState(false);
@@ -233,15 +162,14 @@
                 setResult(null);
                 setTimeout(() => {
                     const charCodeSum = Array.from(finalInput).reduce((sum, char) => sum + char.charCodeAt(0), 0);
-                    const index = charCodeSum % ENERGY_LIBRARY.length;
-                    setResult(ENERGY_LIBRARY[index]);
+                    setResult(ENERGY_LIBRARY[charCodeSum % ENERGY_LIBRARY.length]);
                     setIsScanning(false);
                     window.scrollTo({ top: 0, behavior: 'smooth' });
-                }, 2800); 
+                }, 2500); 
             };
 
             return (
-                <div className="min-h-screen relative overflow-x-hidden pb-20">
+                <div className="min-h-screen relative">
                     <StarField />
                     <div className="relative z-10 max-w-2xl mx-auto px-6 py-16 flex flex-col items-center">
                         {!result && !isScanning && (
@@ -253,8 +181,8 @@
                                             <Icon name="Sparkles" className="w-12 h-12 text-indigo-400" />
                                         </div>
                                     </div>
-                                    <h1 className="text-4xl font-extralight tracking-[0.4em] mb-4 text-white text-center">宇宙能量扫描站</h1>
-                                    <p className="text-[10px] tracking-[0.6em] text-indigo-400/80 uppercase font-bold text-center">Universal Frequency Alignment</p>
+                                    <h1 className="text-4xl font-extralight tracking-[0.4em] mb-4 text-white">宇宙能量扫描站</h1>
+                                    <p className="text-[10px] tracking-[0.6em] text-indigo-400/80 uppercase font-bold">Universal Frequency Alignment</p>
                                 </header>
                                 <div className="w-full space-y-12">
                                     <div className="space-y-6 text-center">
@@ -277,7 +205,7 @@
                         {isScanning && (
                             <div className="flex flex-col items-center justify-center py-48 space-y-12 w-full animate-in">
                                 <div className="relative animate-float"><div className="w-64 h-64 border border-indigo-500/10 rounded-full animate-[ping_4s_infinite]" /><div className="absolute inset-0 flex items-center justify-center"><div className="w-32 h-32 border-t-2 border-indigo-400 rounded-full animate-spin" /></div></div>
-                                <p className="text-2xl tracking-[0.6em] text-white font-extralight animate-pulse text-center">正在扫描你的能量指纹...</p>
+                                <p className="text-2xl tracking-[0.6em] text-white font-extralight animate-pulse text-center px-10">正在下载意识指纹...</p>
                             </div>
                         )}
 
@@ -315,7 +243,7 @@
 
                                 <section className="p-12 rounded-[4rem] border border-white/5 bg-black/20 shadow-xl">
                                     <h3 className="text-sm uppercase tracking-[0.6em] text-indigo-400 font-bold mb-24 flex items-center gap-4"><Icon name="Anchor" className="w-6 h-6" /> 七脉轮能量洞察</h3>
-                                    <div className="space-y-16">
+                                    <div className="space-y-24">
                                         {result.chakras.map((c, i) => (
                                             <div key={c.name} className="group border-l-2 border-white/5 pl-8 transition-all hover:border-indigo-500/40">
                                                 <div className="flex justify-between items-end mb-4">
@@ -325,8 +253,8 @@
                                                     </div>
                                                     <span className="text-sm text-indigo-400 font-mono font-bold tracking-tighter">{c.value}%</span>
                                                 </div>
-                                                <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden mb-6"><div className="h-full transition-all duration-[3500ms]" style={{ width: `${c.value}%`, backgroundColor: CHAKRA_COLORS[i] }} /></div>
-                                                <p className="text-base leading-relaxed text-slate-300 font-light italic">{c.status}</p>
+                                                <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden mb-8"><div className="h-full transition-all duration-[3500ms]" style={{ width: `${c.value}%`, backgroundColor: CHAKRA_COLORS[i] }} /></div>
+                                                <p className="text-lg leading-relaxed text-slate-300 font-light italic">{c.status}</p>
                                             </div>
                                         ))}
                                     </div>
@@ -346,45 +274,84 @@
                                 <div className="space-y-8 pt-12 text-center">
                                     <div className="grid grid-cols-2 gap-8">
                                         <button onClick={() => setShowShareModal(true)} className="py-7 rounded-[2.5rem] bg-indigo-500 text-white font-medium text-sm tracking-[0.5em] uppercase flex items-center justify-center gap-4 hover:bg-indigo-400 transition-all shadow-xl active:scale-95"><Icon name="Share" className="w-5 h-5" /> 分享结果</button>
-                                        <button onClick={() => setShowShareModal(true)} className="py-7 rounded-[2.5rem] border border-white/10 bg-white/5 text-slate-300 text-sm tracking-[0.5em] uppercase flex items-center justify-center gap-4 active:scale-95 transition-all">保存海报</button>
+                                        <button onClick={() => { setResult(null); setInput(''); window.scrollTo({top: 0, behavior: 'smooth'}); }} className="w-full py-7 rounded-[2rem] border border-white/5 text-xs tracking-[1em] uppercase text-slate-600 hover:text-slate-400 transition-all font-bold">重新校准能量</button>
                                     </div>
-                                    <button onClick={() => { setResult(null); setInput(''); window.scrollTo({top: 0, behavior: 'smooth'}); }} className="w-full py-7 rounded-[2rem] border border-white/5 text-xs tracking-[1em] uppercase text-slate-600 hover:text-slate-400 transition-all font-bold">重新校准能量</button>
                                 </div>
                             </div>
                         )}
                     </div>
 
+                    {/* Share Modal - 分享海报层 */}
                     {showShareModal && (
-                        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 animate-in">
+                        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in overflow-hidden">
                             <div className="absolute inset-0 bg-black/95 backdrop-blur-3xl" onClick={() => setShowShareModal(false)} />
-                            <div className="relative w-full max-w-sm bg-gradient-to-b from-[#0a0a1a] to-black rounded-[4rem] border border-white/10 overflow-hidden shadow-2xl p-10 flex flex-col items-center">
-                                <button onClick={() => setShowShareModal(false)} className="absolute top-8 right-8 p-2 rounded-full bg-white/5 text-slate-500 hover:text-white"><Icon name="X" className="w-5 h-5" /></button>
-                                <div className="w-full flex flex-col items-center text-center py-4">
-                                    <Icon name="Sparkles" className="w-10 h-10 text-indigo-400 mb-8" />
-                                    <h2 className="text-xl tracking-[0.6em] text-white font-bold uppercase mb-12 tracking-widest text-center">能量扫描报告</h2>
-                                    <div className="flex items-center gap-5 mb-8">
-                                        <div className="w-5 h-5 rounded-full shadow-xl" style={{ backgroundColor: result?.aura.color }} />
+                            <div className="relative w-full max-w-sm bg-gradient-to-b from-[#0a0a1a] to-black rounded-[4rem] border border-white/10 shadow-2xl p-10 flex flex-col items-center">
+                                {/* 关闭按钮 - 极其明显且易点击 */}
+                                <button 
+                                    onClick={() => setShowShareModal(false)} 
+                                    className="absolute -top-4 -right-2 p-4 bg-white/10 rounded-full text-white border border-white/20 active:scale-90 transition-all shadow-2xl z-[110]"
+                                >
+                                    <Icon name="X" className="w-6 h-6" />
+                                </button>
+                                
+                                <div className="w-full flex flex-col items-center text-center py-2 modal-scroll">
+                                    <Icon name="Sparkles" className="w-10 h-10 text-indigo-400 mb-6" />
+                                    <h2 className="text-lg tracking-[0.6em] text-white font-bold uppercase mb-8 tracking-widest text-center">能量扫描报告</h2>
+                                    
+                                    <div className="flex items-center gap-4 mb-6">
+                                        <div className="w-4 h-4 rounded-full shadow-xl" style={{ backgroundColor: result?.aura.color }} />
                                         <span className="text-3xl font-light text-white tracking-[0.2em]">{result?.aura.name}</span>
                                     </div>
-                                    <p className="text-slate-400 text-sm leading-relaxed mb-12 px-6 italic font-light">“{result?.aura.summary}”</p>
-                                    <div className="w-full bg-white/[0.03] rounded-[2.5rem] p-10 mb-8 text-left border border-white/5">
-                                        <p className="text-[10px] text-indigo-400 uppercase tracking-[0.4em] mb-4 font-bold">天赋使命感应</p>
+                                    
+                                    <p className="text-slate-400 text-sm leading-relaxed mb-8 px-4 italic font-light">“{result?.aura.summary}”</p>
+                                    
+                                    <div className="w-full bg-white/[0.03] rounded-[2.5rem] p-8 mb-8 text-left border border-white/5">
+                                        <p className="text-[10px] text-indigo-400 uppercase tracking-[0.4em] mb-4 font-bold">天赋使命感应 / Mission</p>
                                         <p className="text-slate-300 text-xs font-light leading-relaxed line-clamp-custom">{result?.mission}</p>
                                     </div>
-                                    <div className="w-full flex items-center justify-between gap-6 px-6 py-8 border-t border-white/5 mt-4">
-                                        <div className="text-left space-y-2"><p className="text-[12px] text-white font-bold tracking-widest uppercase">扫码链接源头</p><p className="text-[9px] text-slate-500 tracking-wider font-light italic">共同开启 2026 觉醒之年</p></div>
-                                        <div className="p-3 bg-white/5 rounded-2xl border border-white/10 shadow-lg"><Icon name="Qr" className="w-12 h-12 text-indigo-400 opacity-80" /></div>
+                                    
+                                    {/* 病毒式入口 - 自动生成真实二维码 */}
+                                    <div className="w-full flex items-center justify-between gap-6 px-6 py-6 border-t border-white/5 mt-4">
+                                        <div className="text-left space-y-1">
+                                            <p className="text-[12px] text-white font-bold tracking-widest uppercase">扫码链接源头</p>
+                                            <p className="text-[9px] text-slate-500 tracking-wider font-light italic opacity-60">开启你的 2026 能量觉醒</p>
+                                        </div>
+                                        <QRCodeGenerator />
                                     </div>
-                                    <div className="flex items-center gap-2 mb-6 px-6 py-3 bg-indigo-500/10 border border-indigo-500/20 rounded-full mt-8 shadow-xl"><Icon name="Check" className="w-4 h-4 text-indigo-400" /><span className="text-[10px] text-indigo-300 uppercase tracking-[0.2em] font-bold">源头认证频率已通过</span></div>
+                                    
+                                    <div className="flex items-center gap-2 mb-6 px-4 py-2 bg-indigo-500/10 border border-indigo-500/20 rounded-full mt-6 shadow-xl">
+                                        <Icon name="Check" className="w-3 h-3 text-indigo-400" />
+                                        <span className="text-[9px] text-indigo-300 uppercase tracking-[0.2em] font-bold">源头认证频率已通过</span>
+                                    </div>
                                 </div>
-                                <button onClick={() => setShowShareModal(false)} className="w-full py-6 bg-white text-black rounded-3xl font-bold text-sm tracking-widest active:scale-95 shadow-2xl">我知道了</button>
+                                
+                                <p className="text-[10px] text-slate-600 mt-6 animate-pulse">长按图片保存海报并分享</p>
                             </div>
                         </div>
                     )}
-                    <div className="fixed bottom-0 left-0 w-full h-40 bg-gradient-to-t from-[#010103] to-transparent pointer-events-none z-0" />
                 </div>
             );
         }
+
+        const StarField = () => {
+            const canvasRef = useRef(null);
+            useEffect(() => {
+                const canvas = canvasRef.current;
+                const ctx = canvas.getContext('2d');
+                let frameId;
+                const resize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
+                const stars = Array.from({ length: 140 }, () => ({ x: Math.random() * window.innerWidth, y: Math.random() * window.innerHeight, size: Math.random() * 1.5, speed: Math.random() * 0.15 + 0.05 }));
+                const draw = () => {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+                    stars.forEach(s => { ctx.beginPath(); ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2); ctx.fill(); s.y -= s.speed; if (s.y < 0) s.y = canvas.height; });
+                    frameId = requestAnimationFrame(draw);
+                };
+                window.addEventListener('resize', resize); resize(); draw();
+                return () => { window.removeEventListener('resize', resize); cancelAnimationFrame(frameId); };
+            }, []);
+            return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-0" />;
+        };
 
         const container = document.getElementById('root');
         const root = ReactDOM.createRoot(container);
