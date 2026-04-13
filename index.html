@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>宇宙能量扫描站</title>
-    <!-- 基础库加载 -->
+    <!-- 极速加载核心库 -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -25,12 +25,95 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef } = React;
 
-        // --- 全局配置 (必须在最前面定义) ---
+        // --- 全局配置 ---
         const CHAKRA_COLORS = ["#EF4444", "#F97316", "#FACC15", "#22C55E", "#3B82F6", "#6366F1", "#A855F7"];
+        const CHAKRA_NAMES = ["海底轮", "生殖轮", "太阳神经丛", "心轮", "喉轮", "眉心轮", "顶轮"];
         const TAG_POOL = ["寻找灵魂使命", "释放职场焦虑", "吸引金钱丰盛", "深度情感疗愈", "渴望内在宁静", "找回行动意志", "链接高维直觉", "突破创作瓶颈", "开启显化丰盛", "净化磁场负担", "增强自信能量", "提升生命频率", "平衡身心节奏", "寻找生命真意", "重塑自我价值"];
         const ORACLES = ["我选择放下不再服务于我的旧能量，迎接全新的自我。", "我正处于蜕变的边缘，宇宙之光正在指引我的每一步。", "宇宙的丰盛正在精准流向我，我完全敞开以接收。", "我的每一次呼吸都在与万物共振，我即是光。", "我的直觉是神圣的罗盘，指引我走向真实的方向。"];
 
-        // --- 静态图标 ---
+        const AURA_NAMES = ["涅槃紫金光", "极光翡翠绿", "深海蔚蓝光", "日冕纯金色", "神圣玫瑰粉", "晶钻透明光", "流金琥珀橙", "碧玺孔雀绿", "熔岩赤色火", "靛蓝星空光", "天琴座白光", "大地母亲褐", "银河核心银", "雷姆利亚青", "恒星辉光白", "亚特兰蒂斯靛", "基督意识红", "佛陀智慧黄", "宇宙虚空黑", "生命之花金", "如来琉璃青"];
+        const AURA_COLORS = ["#A855F7", "#22C55E", "#3B82F6", "#FACC15", "#EC4899", "#FFFFFF", "#F97316", "#14B8A6", "#EF4444", "#6366F1", "#94a3b8", "#78350f", "#e2e8f0", "#5eead4", "#fafaf9", "#312e81", "#dc2626", "#eab308", "#09090b", "#fbbf24", "#06b6d4"];
+
+        // --- 脉轮动态解读生成器 ---
+        const getChakraInsight = (name, value) => {
+            const insights = {
+                "海底轮": {
+                    high: "判定：生命根基极其稳固。建议：保持当下的安全感，将能量向上导引至创造领域。",
+                    mid: "判定：生存能量流转正常。建议：多亲近大自然，进一步加固与大地的链接。",
+                    low: "判定：存在潜在的生存焦虑。建议：练习赤脚接触土地，清理对匮乏的无意识恐惧。"
+                },
+                "生殖轮": {
+                    high: "判定：创造力与情感处于巅峰。建议：尝试高难度的艺术创作，享受纯粹的生命喜悦。",
+                    mid: "判定：情感流动平衡。建议：允许情绪自然流动，不带审判地接纳内在的阴阳平衡。",
+                    low: "判定：生命力稍显凝滞。建议：随心而起地舞动，激活沉睡的情感源泉。"
+                },
+                "太阳神经丛": {
+                    high: "判定：个人意志力极其强大。建议：平衡好掌控欲与顺应天道的节奏，防止过度用力。",
+                    mid: "判定：自我肯定感良好。建议：继续信任内在直觉，在行动中稳固你的个人边界。",
+                    low: "判定：意志力正处于重塑期。建议：对着镜子练习肯定句，拿回你人生的主导权。"
+                },
+                "心轮": {
+                    high: "判定：慈悲与接纳的频率极高。建议：建立健康的光之边界，防止过度吸收他人负面能量。",
+                    mid: "判定：自爱与他爱平衡。建议：继续深化慈悲观，让爱成为一种自然溢出的香气。",
+                    low: "判定：心之门户存在防御。建议：尝试‘心之呼吸’，允许爱重新进入那些曾受过伤的角落。"
+                },
+                "喉轮": {
+                    high: "判定：表达力精准且具有号召力。建议：审慎使用言语的权柄，只说带有建设性和真理的话。",
+                    mid: "判定：沟通顺畅。建议：练习更深度的倾听，让言语携带更多来自灵魂的真实感。",
+                    low: "判定：真实表达受阻。建议：尝试自由书写，将压抑在喉间的声音以文字形式流淌出来。"
+                },
+                "眉心轮": {
+                    high: "判定：直觉力与透视力极强。建议：相信你第一时间的灵感，那是高我在直接与你对话。",
+                    mid: "判定：洞察力稳步提升。建议：减少电子产品的使用，给松果体留出更多静默的空间。",
+                    low: "判定：感知力处于迷雾期。建议：多看远山或深蓝色物，协助视觉意识进行频率校准。"
+                },
+                "顶轮": {
+                    high: "判定：神圣连接完全敞开。建议：保持谦卑与静默，你是源头智慧在物质界的翻译器。",
+                    mid: "判定：灵性意识觉醒。建议：坚持每日冥想，加固这条通向高维意识的金色信道。",
+                    low: "判定：意识仍被世俗逻辑局限。建议：多接触高频书籍或导师，主动打破旧有的认知天花板。"
+                }
+            };
+            const level = value > 85 ? 'high' : (value > 65 ? 'mid' : 'low');
+            return insights[name][level];
+        };
+
+        // --- 21 种原型逻辑生成 ---
+        const ENERGY_LIBRARY = [];
+        const familyTypes = [
+            { title: "觉醒者", focus: [6, 5] },
+            { title: "疗愈者", focus: [3, 1] },
+            { title: "显化者", focus: [2, 0] },
+            { title: "表达者", focus: [4, 6] },
+            { title: "守护者", focus: [3, 0] },
+            { title: "创造者", focus: [1, 2] },
+            { title: "开拓者", focus: [2, 0] }
+        ];
+
+        const buildLibrary = () => {
+            for (let i = 0; i < 21; i++) {
+                const type = familyTypes[i % familyTypes.length];
+                const chakras = CHAKRA_NAMES.map((name, idx) => {
+                    let val = Math.floor(Math.random() * 30) + 40;
+                    if (type.focus.includes(idx)) val += 30; // 核心脉轮加强
+                    return {
+                        name,
+                        value: Math.min(val, 99),
+                        status: getChakraInsight(name, Math.min(val, 99))
+                    };
+                });
+
+                ENERGY_LIBRARY.push({
+                    aura: { color: AURA_COLORS[i], name: AURA_NAMES[i], summary: `灵魂正在经历“${type.title}”阶段的深度校准` },
+                    analysis: `扫描结果显示你正被极其宏大的${AURA_NAMES[i]}所环绕。这标志着你正处于一个极其重要的‘灵魂重塑与意识跃迁’的关键节点。在心理层面，你近期的感知深度已经突破了三维逻辑的上限。你开始能敏锐地捕捉到社交环境中微小的能量撕裂感，这并非敏感，而是你的意识频率正在自动‘拒收’那些陈旧、低效、带有牺牲色彩的生存契约。这种能量正在帮你深度清理潜意识中积压的匮乏感，将‘我必须努力才能生存’的旧模板彻底粉碎，并替换为‘万物为我所用，我本具足’的高阶指令。你正从一个被动的生命反应者，转变为一个主动的意识共创者，这预示着你即将重启你的生命神圣主权。\n\n在具体的灵魂演变逻辑中，这道光意味着你与‘宇宙集体意识’的信道已经完全敞开。你开始意识到生活中的每一个‘巧合’其实都是背后精密的神圣设计。这种频率正在深度清理你潜意识中残存的被遗弃感和不配得感，将其转化为对生命无限可能性的终极信任。你不再试图通过小我的焦虑去强行控制结果，而是开始享受‘被生命溪流所承载’的臣服感。接下来的三到六个月，你将进入一个‘加速显化窗口’，每一个清晰的意图都会比以往更快地在物质世界获得反馈。请务必保持你起心动念的纯净，因为你已经是自己实相的绝对创造者。\n\n此外，${AURA_NAMES[i]}还预示着你与源头意识的某种特殊‘契约’已被激活。你可能会感到一种莫名的召唤感。这不是偶然，而是你的高我在为你指路，帮助你找回失落已久的灵魂碎片，完成某种跨越时空的生命大整合。你正在经历一场关于‘时间感知’的深刻变革，你会发现过去的很多遗憾在当下突然得到了神圣的合理解释。请彻底放下那种一定要靠辛苦劳动才能获取丰盛的陈旧执念，尝试在深度的宁静中行动。当你的内在回归零点，整个宇宙的资源都会以你无法想象的方式向你飞奔而来。你已经是光，请只是单纯地允许自己绽放，所有的美好都会因你的绽放而自动显化。`,
+                    chakras: chakras,
+                    mission: `你这一生的灵魂核心代码是“频率引路人”。你的天赋使命是作为一个翻译器，将那些原本难以理解的高维灵感，通过你独特的创意、商业逻辑或简单的平凡生活示范，具象化为能切实帮助世人觉醒的实相。你不需要刻意去改变别人，你只需全然活出你的真实。这种真实产生的震荡波自会唤醒周围沉睡的灵魂。你正在学习如何平衡神圣直觉与理性执行，在红尘中炼心。`,
+                    advice: "源头给你的指引是：‘减少用力，回归中心的极致寂静’。目前的你太容易被外界的信息波澜所牵引，试图通过逻辑分析去解决所有人生难题。但现在的重点是‘神圣的静默’。当你不再焦虑于未来，也不再纠结于过去时，你当下的频率就是全宇宙最强的。建议你近期进行一次深度的‘信息斋戒’，关闭不必要的社交干扰。你会发现，当你不再‘追逐’显化时，你所需要的一切资源都会成群结队地向你飞奔而来。"
+                });
+            }
+        };
+        buildLibrary();
+
+        // --- UI 图标组件 ---
         const Icon = ({ name, className = "w-6 h-6" }) => {
             const paths = {
                 Sparkles: <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />,
@@ -44,7 +127,7 @@
                 Download: <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>,
                 X: <path d="M18 6 6 18M6 6l12 12"/>,
                 Check: <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10zM9 12l2 2 4-4"/>,
-                Qr: <g><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3z"/><path d="M14 14h3v3h-3zM18 18h3v3h-3zM14 18h3v3h-3zM18 14h3v3h-3z"/></g>
+                Qr: <g><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3z"/><path d="M14 14h3v3h-3zM18 18h3v3h-3z"/></g>
             };
             return (
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -53,40 +136,7 @@
             );
         };
 
-        // --- 深度能量库 ---
-        const ENERGY_LIBRARY = [];
-        const auraNames = ["涅槃紫金光", "极光翡翠绿", "深海蔚蓝光", "日冕纯金色", "神圣玫瑰粉", "晶钻透明光", "流金琥珀橙", "碧玺孔雀绿", "熔岩赤色火", "靛蓝星空光", "天琴座白光", "大地母亲褐", "银河核心银", "雷姆利亚青", "恒星辉光白", "亚特兰蒂斯靛", "基督意识红", "佛陀智慧黄", "宇宙虚空黑", "生命之花金", "如来琉璃青"];
-
-        for (let i = 0; i < 21; i++) {
-            const color = i < 10 ? CHAKRA_COLORS[i % 7] : "#ffffff";
-            ENERGY_LIBRARY.push({
-                aura: { color: color, name: auraNames[i], summary: "高维频率正通过你的意识窗口进行深度整合与生命实相的宏大显化" },
-                analysis: `根据多维场域的精微扫描，你目前的能量状态被极其纯净的${auraNames[i]}所包裹。这不仅代表了你当下的运势方向，更揭示了你正处于一个长达数年的“灵魂重组周期”的冲刺阶段。在心理层面，你近期的感知力已经向精微维度大幅扩张，你开始能一眼识破那些披着伪善外壳的社交博弈，这种能力源于你内在频率的自动对齐，它在强制你过滤掉那些低效、沉重且充满匮乏感的生存契约。这种能量正在帮你深度清理潜意识中积压已久的“不配得感”，将那些束缚你多年的旧思想模板彻底粉碎，并替换为“我本具足”的高阶创造指令。你正从一个被动的生命反应者，跃迁为一个主动的意识共创者，这种转变意味着你即将接管并重启你的生命神圣主权。\n\n从更深层的灵魂演化链条来看，${auraNames[i]}的显现预示着你与“宇宙集体意识”的通讯信道已经全面敞开。你开始意识到生活中看似随机的每一个转折点，其实都是背后精密对齐的神圣设计。这种频率正在深度疗愈你累生累世残留的“被遗弃感”和“生存焦虑”，将其转化为对生命无限丰盛的绝对信任。你不再试图通过头脑的焦虑去干预结果，而是学会了臣服于生命的流动，这是一种极高阶的觉醒力量。接下来的三到六个月，你将进入一个极为罕见的“显化加速窗”，每一个清晰且纯净的意图，都会比以往任何时候更快地在物质世界获得反馈。请务必保持起心动念的慈悲与正向，因为你已经是自己宇宙的最高建筑师。\n\n此外，这种独特的频率还预示着你与源头意识的某种特殊灵魂协议已被重新激活。你近期可能会感到一种莫名的、无法用逻辑解释的召唤，指引你去接触某些特定的环境或社群。这不是巧合，而是你的高我在协助你找回失落已久的灵魂碎片。你正在经历一场关于“时空感知”的重构，你会惊奇地发现，过去的遗憾在当下突然得到了神圣的合理解释。请彻底放下那种“一定要靠透支生命才能换取成功”的陈旧执念，尝试在深沉的宁静中行动。当你的内在回归平衡，整个宇宙的资源都会以意想不到的方式向你汇聚。你已经是光，请只是单纯地允许自己绽放，你会发现，所有的美好实相都会因你的绽放而自动显现，你无需追逐。`,
-                chakras: [
-                    { name: "顶轮", value: 92, status: "顶轮目前呈现出高度晶体化的活跃状态。现状判定：你与宇宙源头的连接通路已显著加宽，直觉下载感极强，常感到头顶有清凉感或微弱电流感。成因溯源：由于你近期频繁的内在探索，灵性天线已被激活。调整建议：减少碎片化信息摄入，尝试每天进行20分钟“空性冥想”，只需作为观察者存在。这能稳定频率锚定点，防止高频能量导致的现实脱节感。" },
-                    { name: "眉心轮", value: 85, status: "第三眼正在经历精密的“焦距校准”。现状判定：捕捉真相的能力大幅增强，能预感事件走向和人心底色。有时由于“看”得太透，会感到精神性的疲惫。成因溯源：潜意识正试图整合多维的信息流，松果体活跃度处于波峰。调整建议：多接触自然界的深蓝色彩，如山峦和水纹。每晚睡前用温毛巾轻敷眼部，并默念“我只看清真实的爱”，能有效缓解直觉扩张带来的紧张感。" },
-                    { name: "喉轮", value: 76, status: "表达中心正处于从“生存防御”到“灵魂真实”的转化期。现状判定：开始排斥无意义的客套，倾向于精准、有力的沟通。成因溯源：灵魂意志正在接管你的自我表达权限。调整建议：尝试自由书写或录制不带脚本的声音日记，捕捉灵感碎片。不要害怕表达你的“真实”，即使它与主流不同。真实的表达是你最大的生命保护伞，能自动震碎虚假。" },
-                    { name: "心轮", value: 90, status: "慈悲与接纳的泉眼已完全敞开。现状判定：对万物的同理心达到极点，具有极强疗愈力，但也容易吸附负面情绪。成因溯源：你已完成了前阶段的心理防御，进入“大我共鸣”阶段。调整建议：建立严密的“能量边界防护”。每天睡前想象粉色光球包裹心脏，归还所有不属于你的他人情绪。请记住：真正的慈悲是保持在光中照耀，而不是跳入他人的深坑。" },
-                    { name: "太阳神经丛", value: 68, status: "意志力与个人主权中心正在经历地震式重塑。现状判定：你正从“依赖外部认可”转向“内在主权肯定”。可能伴随胃部紧绷。成因溯源：个人小我掌控欲正在退位，让位于神圣意志。调整建议：多进行深度腹式呼吸，每天对着镜子宣言“我有权活出我的真实”。决策时信任你的“直觉性胃部反应”。当你完全停止向外求认同，内在太阳才会真正升起。" },
-                    { name: "生殖轮", value: 75, status: "创造力与情感流动趋于高度的神圣对齐。现状判定：创造能量充沛，情感连接变得深邃且带有仪式感。成因溯源：通过对过往印记的整合，你找回了关于“喜悦”的动力源。调整建议：随心而起地舞动或进行手工艺创作。允许情绪像溪流一样流过。在全然的放松中，你会发现丰盛的物质财富正通过你的“愉悦频率”被自动吸引而来，这是对喜悦的最高奖赏。" },
-                    { name: "海底轮", value: 62, status: "物质根基与安全感中心正在经历地基式加固。现状判定：虽然灵魂已在宇宙翱翔，但在现实层面的“着陆方案”仍显薄弱，对未来财务有隐约不安。成因溯源：由于频率提升过快导致能量重心上移。调整建议：刻意增加与土地的连接，赤脚行走或园艺劳作。关注生活最细微的物质层面，如住所整洁。将神圣意识带入柴米油盐，让每一粒米、每一分钱都充满光的加持。" }
-                ],
-                mission: "你这一生的灵魂核心代码是“多维意识的翻译者”。你的使命是通过独特的创意、商业逻辑或简单的生命示范，将高维的宇宙灵感具象化为能切实帮助世人觉醒的实相。你不需要刻意去教导，你只需全然活出你的真实，这种真实产生的震荡波自会穿透周围沉睡灵魂的帷幕。",
-                advice: "源头给你的指引是：‘减少用力，回归中心的寂静’。目前的你太容易被外界信息牵引，试图分析解决所有变量。但现在的重点是‘神圣的静默’。当你不再焦虑于未来，也不再纠结于过去时，你当下的频率就是全宇宙最强的。信任这种神圣的共时性节奏。"
-            });
-        }
-
-        // --- 子组件：莲花点 ---
-        const SacredLotusPoint = ({ color, cx, cy, name }) => (
-            <g transform={`translate(${cx}, ${cy})`}>
-                <circle r="6" fill={color} opacity="0.3" className="animate-pulse" />
-                <path d="M0,-8 C2,-4 5,-2 10,0 C5,2 2,4 0,8 C-2,4 -5,2 -10,0 C-5,-2 -2,-4 0,-8 Z" fill={color} />
-                <circle r="1.5" fill="white" />
-                <text x="25" y="4" style={{ fill: 'white', opacity: 0.6, fontSize: '10px', fontWeight: 200, letterSpacing: '2px' }}>{name}</text>
-            </g>
-        );
-
-        // --- 主组件 ---
+        // --- 核心组件 ---
         function App() {
             const [input, setInput] = useState('');
             const [isScanning, setIsScanning] = useState(false);
@@ -111,9 +161,7 @@
 
             return (
                 <div className="min-h-screen relative overflow-x-hidden pb-20">
-                    {/* 背景星空渲染 */}
                     <StarField />
-                    
                     <div className="relative z-10 max-w-2xl mx-auto px-6 py-16 flex flex-col items-center">
                         {!result && !isScanning && (
                             <div className="w-full flex flex-col items-center animate-in">
@@ -125,7 +173,7 @@
                                         </div>
                                     </div>
                                     <h1 className="text-4xl font-extralight tracking-[0.4em] mb-4 text-white">宇宙能量扫描站</h1>
-                                    <p className="text-[10px] tracking-[0.6em] text-indigo-400/80 uppercase">Universal Frequency Alignment</p>
+                                    <p className="text-[10px] tracking-[0.6em] text-indigo-400/80 uppercase font-bold tracking-tighter">Universal Frequency Alignment</p>
                                 </header>
                                 <div className="w-full space-y-12">
                                     <div className="space-y-6 text-center">
@@ -148,21 +196,20 @@
                         {isScanning && (
                             <div className="flex flex-col items-center justify-center py-48 space-y-12 w-full animate-in">
                                 <div className="relative animate-float"><div className="w-64 h-64 border border-indigo-500/10 rounded-full animate-[ping_4s_infinite]" /><div className="absolute inset-0 flex items-center justify-center"><div className="w-32 h-32 border-t-2 border-indigo-400 rounded-full animate-spin" /></div></div>
-                                <p className="text-2xl tracking-[0.6em] text-white font-extralight animate-pulse text-center">正在扫描你的能量指纹...</p>
+                                <p className="text-2xl tracking-[0.6em] text-white font-extralight animate-pulse text-center">正在下载意识指纹...</p>
                             </div>
                         )}
 
                         {result && (
                             <div className="w-full space-y-24 animate-in pb-32">
-                                {/* Aura Highlight */}
                                 <section className="relative p-12 rounded-[4rem] border border-white/5 bg-black/40 overflow-hidden group shadow-2xl">
                                     <div className="absolute -right-32 -top-32 w-[500px] h-[500px] blur-[150px] opacity-25" style={{ backgroundColor: result.aura.color }} />
                                     <div className="relative space-y-12">
                                         <div className="space-y-6">
                                             <h2 className="text-sm uppercase tracking-[0.6em] text-indigo-400 font-bold">能量场报告 / Aura Analysis</h2>
                                             <div className="flex items-center gap-8">
-                                                <span className="text-4xl font-light text-white tracking-[0.2em]">{result.aura.name}</span>
-                                                <div className="w-8 h-8 rounded-full shadow-[0_0_30px_rgba(255,255,255,0.2)]" style={{ backgroundColor: result.aura.color, boxShadow: `0 0 35px ${result.aura.color}` }} />
+                                                <span className="text-3xl font-light text-white tracking-[0.2em]">{result.aura.name}</span>
+                                                <div className="w-8 h-8 rounded-full shadow-lg" style={{ backgroundColor: result.aura.color, boxShadow: `0 0 35px ${result.aura.color}` }} />
                                             </div>
                                             <p className="text-indigo-200/50 tracking-[0.15em] text-xl italic font-light leading-relaxed">“{result.aura.summary}”</p>
                                         </div>
@@ -179,26 +226,26 @@
 
                                 <section className="py-12 flex flex-col items-center space-y-16">
                                     <div className="text-center space-y-4"><h3 className="text-base uppercase tracking-[0.6em] text-indigo-400 font-bold">能量中心系统 / Chakra System</h3><p className="text-[10px] text-slate-600 tracking-widest uppercase text-center">Spiritual Alignment Mapping</p></div>
-                                    <div className="w-full flex justify-center bg-black/20 py-24 rounded-[5rem] border border-white/5 relative overflow-hidden group shadow-inner">
+                                    <div className="w-full flex justify-center bg-black/20 py-24 rounded-[5rem] border border-white/5 relative overflow-hidden shadow-inner">
                                         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-indigo-500/5 to-transparent opacity-60" />
                                         <MeditatingFigureSVG />
                                     </div>
                                 </section>
 
-                                <section className="p-12 rounded-[4rem] border border-white/5 bg-black/20 shadow-xl">
+                                <section className="p-12 rounded-[4rem] border border-white/5 bg-black/20 backdrop-blur-md shadow-xl">
                                     <h3 className="text-sm uppercase tracking-[0.6em] text-indigo-400 font-bold mb-24 flex items-center gap-4"><Icon name="Anchor" className="w-6 h-6" /> 七脉轮能量洞察</h3>
-                                    <div className="space-y-24">
+                                    <div className="space-y-16">
                                         {result.chakras.map((c, i) => (
                                             <div key={c.name} className="group border-l-2 border-white/5 pl-8 transition-all hover:border-indigo-500/40">
-                                                <div className="flex justify-between items-end mb-6">
+                                                <div className="flex justify-between items-end mb-4">
                                                     <div className="flex items-center gap-5">
                                                         <div className="w-3 h-3 rounded-full shadow-lg" style={{ backgroundColor: CHAKRA_COLORS[i], boxShadow: `0 0 15px ${CHAKRA_COLORS[i]}` }} />
                                                         <span className="text-2xl tracking-[0.3em] text-white font-light">{c.name}</span>
                                                     </div>
                                                     <span className="text-sm text-indigo-400 font-mono font-bold tracking-tighter">{c.value}%</span>
                                                 </div>
-                                                <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden mb-8"><div className="h-full transition-all duration-[3500ms]" style={{ width: `${c.value}%`, backgroundColor: CHAKRA_COLORS[i] }} /></div>
-                                                <p className="text-lg leading-relaxed text-slate-300 font-light">{c.status}</p>
+                                                <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden mb-6"><div className="h-full transition-all duration-[3500ms]" style={{ width: `${c.value}%`, backgroundColor: CHAKRA_COLORS[i] }} /></div>
+                                                <p className="text-base leading-relaxed text-slate-300 font-light italic">{c.status}</p>
                                             </div>
                                         ))}
                                     </div>
@@ -218,7 +265,7 @@
                                 <div className="space-y-8 pt-12 text-center">
                                     <div className="grid grid-cols-2 gap-8">
                                         <button onClick={() => setShowShareModal(true)} className="py-7 rounded-[2.5rem] bg-indigo-500 text-white font-medium text-sm tracking-[0.5em] uppercase flex items-center justify-center gap-4 hover:bg-indigo-400 transition-all shadow-xl active:scale-95"><Icon name="Share" className="w-5 h-5" /> 分享结果</button>
-                                        <button onClick={() => setShowShareModal(true)} className="py-7 rounded-[2.5rem] border border-white/10 bg-white/5 text-slate-300 text-sm tracking-[0.5em] uppercase flex items-center justify-center gap-4 active:scale-95 transition-all"><Icon name="Download" className="w-5 h-5" /> 保存卡片</button>
+                                        <button onClick={() => setShowShareModal(true)} className="py-7 rounded-[2.5rem] border border-white/10 bg-white/5 text-slate-300 text-sm tracking-[0.5em] uppercase flex items-center justify-center gap-4 active:scale-95 transition-all">保存海报</button>
                                     </div>
                                     <button onClick={() => { setResult(null); setInput(''); window.scrollTo({top: 0, behavior: 'smooth'}); }} className="w-full py-7 rounded-[2rem] border border-white/5 text-xs tracking-[1em] uppercase text-slate-600 hover:text-slate-400 transition-all font-bold">重新校准能量</button>
                                 </div>
@@ -229,7 +276,7 @@
                     {showShareModal && (
                         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 animate-in">
                             <div className="absolute inset-0 bg-black/95 backdrop-blur-3xl" onClick={() => setShowShareModal(false)} />
-                            <div className="relative w-full max-w-sm bg-gradient-to-b from-[#0a0a1a] to-black rounded-[4rem] border border-white/10 overflow-hidden shadow-2xl p-10 flex flex-col items-center">
+                            <div className="relative w-full max-w-sm bg-gradient-to-b from-[#0a0a1a] to-black rounded-[4rem] border border-white/10 shadow-2xl p-10 flex flex-col items-center">
                                 <button onClick={() => setShowShareModal(false)} className="absolute top-8 right-8 p-2 rounded-full bg-white/5 text-slate-500 hover:text-white"><Icon name="X" className="w-5 h-5" /></button>
                                 <div className="w-full flex flex-col items-center text-center py-4">
                                     <Icon name="Sparkles" className="w-10 h-10 text-indigo-400 mb-8" />
@@ -278,7 +325,17 @@
             return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-0" />;
         };
 
-        // --- 视觉组件 ---
+        // --- 视觉子组件：莲花发光点 ---
+        const SacredLotusPoint = ({ color, cx, cy, name }) => (
+            <g transform={`translate(${cx}, ${cy})`}>
+                <circle r="6" fill={color} opacity="0.3" className="animate-pulse" />
+                <path d="M0,-8 C2,-4 5,-2 10,0 C5,2 2,4 0,8 C-2,4 -5,2 -10,0 C-5,-2 -2,-4 0,-8 Z" fill={color} />
+                <circle r="1.5" fill="white" />
+                <text x="25" y="4" style={{ fill: 'white', opacity: 0.6, fontSize: '10px', fontWeight: 200, letterSpacing: '2px' }}>{name}</text>
+            </g>
+        );
+
+        // --- 冥想坐姿视觉组件 ---
         const MeditatingFigureSVG = () => (
             <svg viewBox="0 0 240 300" className="w-full h-auto max-w-[320px]">
                 <defs>
